@@ -8,6 +8,8 @@
 
 <p>
   <a href="https://www.npmjs.com/package/cheatcheck"><img alt="npm" src="https://img.shields.io/npm/v/cheatcheck?color=cb3837" /></a>
+  <a href="https://github.com/YKLovePython/cheatcheck/actions/workflows/ci.yml"><img alt="ci" src="https://github.com/YKLovePython/cheatcheck/actions/workflows/ci.yml/badge.svg" /></a>
+  <a href="https://github.com/YKLovePython/cheatcheck"><img alt="GitHub stars" src="https://img.shields.io/github/stars/YKLovePython/cheatcheck?style=social" /></a>
   <img alt="node" src="https://img.shields.io/badge/node-%3E%3D18-3c873a" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue" />
   <img alt="dependencies" src="https://img.shields.io/badge/runtime%20deps-0-success" />
