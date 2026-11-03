@@ -1,0 +1,56 @@
+{
+  "name": "cheatcheck",
+  "version": "0.1.0",
+  "description": "Catch your AI coding agent cheating before you merge: deleted tests, skipped specs, weakened assertions, swallowed errors.",
+  "keywords": [
+    "ai",
+    "agent",
+    "code-review",
+    "reward-hacking",
+    "testing",
+    "lint",
+    "claude-code",
+    "codex",
+    "cursor",
+    "opencode",
+    "ci"
+  ],
+  "license": "MIT",
+  "author": "cheatcheck contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YKLovePython/cheatcheck.git"
+  },
+  "homepage": "https://github.com/YKLovePython/cheatcheck#readme",
+  "bugs": {
+    "url": "https://github.com/YKLovePython/cheatcheck/issues"
+  },
+  "bin": {
+    "cheatcheck": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "docs",
+    "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build --silent && node --test test/all.test.js",
+    "demo": "npm run build --silent && node dist/cli.js --diff examples/agent-cheat.diff",
+    "demo:svg": "npm run build --silent && node scripts/make-demo-svg.js",
+    "verify:repos": "npm run build --silent && node scripts/verify-real-repos.js",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

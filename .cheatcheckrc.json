@@ -1,0 +1,5 @@
+{
+  "threshold": 70,
+  "ignore": ["dist/", "examples/", "scripts/"],
+  "lang": "en"
+}

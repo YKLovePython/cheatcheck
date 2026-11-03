@@ -1,0 +1,40 @@
+name: "cheatcheck"
+description: "Catch your coding agent cheating before you merge: deleted tests, skipped specs, weakened assertions."
+author: "cheatcheck"
+branding:
+  icon: "shield"
+  color: "red"
+
+inputs:
+  args:
+    description: "Extra arguments for cheatcheck. Defaults to checking against the pull request base branch."
+    required: false
+    default: ""
+  node-version:
+    description: "Node.js version used to run cheatcheck."
+    required: false
+    default: "20"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Run cheatcheck
+      shell: bash
+      env:
+        INPUT_ARGS: ${{ inputs.args }}
+      run: |
+        args="$INPUT_ARGS"
+        case " $args " in
+          *" --base "*|*" --range "*|*" --diff "*|*" --staged "*|*" --stdin "*) ;;
+          *)
+            if [ -n "${GITHUB_BASE_REF:-}" ]; then
+              args="$args --base origin/$GITHUB_BASE_REF"
+            fi
+            ;;
+        esac
+        node "$GITHUB_ACTION_PATH/dist/cli.js" $args
