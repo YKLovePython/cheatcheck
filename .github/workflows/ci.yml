@@ -19,7 +19,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macOS runners are scarce and backlogged; this CLI has no native code and its
+        # POSIX paths are already covered by Ubuntu, so keep the matrix fast and reliable.
+        os: [ubuntu-latest, windows-latest]
         node: [18, 20, 22]
     steps:
       - uses: actions/checkout@v4
