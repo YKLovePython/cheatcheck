@@ -3,7 +3,8 @@
 目标：**7 天内 100+ stars**，先中文社区冷启动，再打 Hacker News。
 
 > 当前状态（2026-11-03）：GitHub 已上线 <https://github.com/YKLovePython/cheatcheck>，
-> CI 全绿；npm 包等登录后发布。下面的清单保留为可重复使用的发布流程。
+> CI 全绿；npm 已发布 `cheatcheck@0.1.0`（<https://www.npmjs.com/package/cheatcheck>），
+> tag `v0.1.0` 与 GitHub Release 已创建。下面的清单保留为可重复使用的发布流程。
 
 这份文件是给自己看的，不发布。原则只有一条：**先给价值，再要 star。** 每个渠道都先讲清楚
 "它能帮你挡掉什么"，最后才放链接。
@@ -18,16 +19,16 @@
       ```
 - [ ] GitHub 仓库名：`cheatcheck`，Description 用下面这句：
       `Catch your AI coding agent cheating before you merge: deleted tests, skipped specs, weakened assertions.`
-- [ ] Topics：`ai` `ai-agents` `code-review` `reward-hacking` `testing` `static-analysis`
+- [x] Topics：`ai` `ai-agents` `code-review` `reward-hacking` `testing` `static-analysis`
       `claude-code` `codex` `cursor` `opencode` `github-actions` `cli`
-- [ ] 确认 `dist/` 已提交，且 `npm run build` 之后 `git status` 干净
-- [ ] `npm test` 全绿；`node dist/cli.js --diff examples/agent-cheat.diff` 输出正常
+- [x] 确认 `dist/` 已提交，且 `npm run build` 之后 `git status` 干净
+- [x] `npm test` 全绿；`node dist/cli.js --diff examples/agent-cheat.diff` 输出正常
 - [ ] README 首屏在手机上能一屏看到：一句话、demo 图、`npx cheatcheck`
 - [ ] 上传 Social preview（1280×640）：左边 agent 说 "all tests pass ✅"，右边 cheatcheck 说
       "12 of those tests no longer exist."
-- [ ] 打 tag `v0.1.0`，创建 GitHub Release，正文直接用 `CHANGELOG.md` 的 0.1.0 段落
-- [ ] `npm publish`，确认 `npx cheatcheck@0.1.0 --version` 可用
-- [ ] 在 3 个真实仓库上各跑一次，截图存证（防"只在自己 demo 上有效"的质疑）
+- [x] 打 tag `v0.1.0`，创建 GitHub Release，正文直接用 `CHANGELOG.md` 的 0.1.0 段落
+- [x] `npm publish`，确认 `npx cheatcheck@0.1.0 --version` 可用
+- [x] 在 7 个真实仓库上各跑一次（`npm run verify:repos`，全部 100 分）；截图仍可补
 - [ ] 准备一条 30 秒录屏：在真实 repo 里删掉一个测试 → 跑 cheatcheck → 红色 FAIL
 
 ## 1. 定位句（所有渠道统一）
