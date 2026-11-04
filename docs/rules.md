@@ -1,6 +1,6 @@
 # Rules
 
-`cheatcheck` ships 16 rules. Severity sets the verdict colour, weight sets the score deduction.
+`cheatcheck` ships 18 rules. Severity sets the verdict colour, weight sets the score deduction.
 
 Every rule is a pure function of the parsed diff. No rule reads the filesystem, runs a command, or
 calls a model.
@@ -21,6 +21,8 @@ mentions `@ts-nocheck` does not trigger `checks-disabled`.
 | [`error-swallowed`](#error-swallowed) | high | 18 | 异常被吞掉 |
 | [`checks-disabled`](#checks-disabled) | high | 15 | 检查被关闭 |
 | [`config-loosened`](#config-loosened) | high | 15 | 配置被放宽 |
+| [`ci-neutered`](#ci-neutered) | high | 20 | CI 被改成不会失败 |
+| [`coverage-gate-removed`](#coverage-gate-removed) | high | 15 | 覆盖率闸门被移除 |
 | [`snapshot-blast`](#snapshot-blast) | high | 15 | 快照被批量重生成 |
 | [`lint-suppressed`](#lint-suppressed) | medium | 8 | lint 被抑制 |
 | [`stub-implementation`](#stub-implementation) | medium | 12 | 桩实现 |
@@ -145,6 +147,40 @@ jest/vitest config or a GitHub workflow:
 
 Also: `skipLibCheck: true`, `--passWithNoTests`, `--forceExit`, `--no-verify`,
 `continue-on-error: true`, `testPathIgnorePatterns`, `fail_under = 0`.
+
+## ci-neutered
+
+**High.** The pipeline is edited so that a failure can no longer fail it. Only files that define how
+checks run are inspected: `.github/workflows/*.yml`, `.gitlab-ci.yml`, `.circleci/config.yml`,
+`azure-pipelines.yml`, `Jenkinsfile`, `.buildkite/*.yml`, `Makefile`, `package.json` scripts and
+`*.sh`.
+
+```diff
+-      - run: npm test
++      - run: npm test || true
+```
+
+Also: `|| exit 0`, `|| :`, `if: false`, `allow_failure: true`, `soft_fail: true`,
+`continueOnError: true`, `set +e`, and deleting a `set -e` / `set -euo pipefail` guard. Commented-out
+lines are ignored, and `|| true` in application code is not a CI change.
+
+**Fix:** make the failing step actually pass, or gate it on a real condition instead of silencing it.
+
+## coverage-gate-removed
+
+**High.** The coverage floor is deleted or lowered in `package.json`, jest/vitest config,
+`pyproject.toml`, `setup.cfg`, `tox.ini`, `.coveragerc`, `.nycrc*`, `codecov.yml` or a workflow.
+
+```diff
+-  coverageThreshold: { global: { lines: 80 } }
++  collectCoverage: false
+```
+
+Also: `check-coverage: false`, `fail_ci_if_error: false`, `--coverage=false`, `--no-coverage`, and any
+`fail_under` that moves down. Raising the bar is never flagged, and `fail_under = 0` is charged once,
+by `config-loosened`.
+
+**Fix:** keep the gate and raise coverage, or explain in the PR why the floor should move.
 
 ## snapshot-blast
 

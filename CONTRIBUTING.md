@@ -22,7 +22,7 @@ Action and `npx github:YKLovePython/cheatcheck` work without a build step.
 src/
   diff.ts       unified diff parser (no dependencies)
   files.ts      path classification: is this a test file? a snapshot? a lockfile?
-  rules.ts      all 16 rules, one object each
+  rules.ts      all 18 rules, one object each
   score.ts      per-rule aggregation, trust score, verdict
   report.ts     terminal / JSON / Markdown / GitHub annotations
   cli.ts        argument parsing, git invocation, exit codes

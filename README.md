@@ -78,7 +78,7 @@ Every one of those produces a green pipeline and a broken product. Reviewers mis
 
 ## What it catches
 
-16 rules, each one run against the added and removed lines of your diff.
+18 rules, each one run against the added and removed lines of your diff.
 
 | Severity | Rule | Catches |
 | --- | --- | --- |
@@ -92,6 +92,8 @@ Every one of those produces a green pipeline and a broken product. Reviewers mis
 | 🟠 high | `error-swallowed` | Empty `catch {}`, `except: pass`, bare `.catch(() => {})` |
 | 🟠 high | `checks-disabled` | Blanket `@ts-nocheck`, `eslint-disable`, `# type: ignore` with no reason |
 | 🟠 high | `config-loosened` | `"strict": false`, `skipLibCheck`, `--passWithNoTests`, `continue-on-error: true` |
+| 🟠 high | `ci-neutered` | `npm test \|\| true`, `if: false`, `allow_failure: true`, removed `set -e` |
+| 🟠 high | `coverage-gate-removed` | `coverageThreshold` deleted, `fail_under` lowered, `collectCoverage: false` |
 | 🟠 high | `snapshot-blast` | A snapshot file with a large one-way rewrite |
 | 🟡 medium | `lint-suppressed` | One-line lint/type suppressions with no reason given |
 | 🟡 medium | `stub-implementation` | `not implemented`, `TODO: implement`, `return null; // stub` |

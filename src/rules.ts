@@ -74,6 +74,56 @@ const LOOSENED: RegExp[] = [
   /^\s*fail_under\s*=\s*0\s*$/,
 ];
 
+/** Files where "run the checks" is actually defined. */
+const CI_FILE =
+  /(^|\/)\.github\/workflows\/[^/]+\.ya?ml$|(^|\/)\.gitlab-ci\.ya?ml$|(^|\/)\.circleci\/config\.ya?ml$|(^|\/)azure-pipelines\.ya?ml$|(^|\/)Jenkinsfile$|(^|\/)\.buildkite\/[^/]+\.ya?ml$|(^|\/)(Makefile|package\.json)$|\.(?:sh|bash|zsh)$/i;
+
+/** Ways to make a failing command stop failing the pipeline. */
+const SWALLOWED = /\|\|\s*(?:true|:|exit\s+0)(?:\s|$)/;
+
+/** A swallowed exit code only matters when the command was actually a check. */
+const CHECK_WORD =
+  /\b(?:test|tests|testing|spec|specs|lint|typecheck|type-check|check|build|coverage|verify|e2e|unit|integration|jest|vitest|mocha|pytest|tox|nox|tsc|eslint|ruff|mypy|make|npm|pnpm|yarn|bun|gradle|maven|mvn|dotnet|rspec|phpunit)\b/i;
+
+/** `rm -rf coverage || true` is cleanup, not a disabled check. */
+const CLEANUP =
+  /^\s*(?:-\s*)?(?:run:\s*)?(?:rm|kill|pkill|docker\s+rm|git\s+(?:clean|checkout)|echo|exit|true|cd|sleep|wait)\b/;
+
+const NEUTERED: RegExp[] = [
+  /^\s*if:\s*(?:false|\$\{\{\s*false\s*\}\})\s*$/,
+  /\ballow_failure\s*:\s*true\b/,
+  /\bsoft_fail\s*:\s*true\b/,
+  /\bcontinueOnError\s*:\s*true\b/i,
+];
+
+/** `set -e`, `set -euo pipefail`, ... */
+const ERREXIT = /^\s*set\s+-[a-zA-Z]*e[a-zA-Z]*\b/;
+
+/**
+ * `|| true` on `npm test` is a silenced check; `|| true` on `rm -rf tmp` is cleanup.
+ * `set +e` only counts when the same change does not re-enable errexit somewhere.
+ */
+function neuters(text: string, errexitRestored: boolean): boolean {
+  if (SWALLOWED.test(text)) return CHECK_WORD.test(text) && !CLEANUP.test(text);
+  if (/^\s*set\s+\+e\b/.test(text)) return !errexitRestored;
+  return matchesAny(text, NEUTERED);
+}
+
+const COVERAGE_FILE =
+  /(^|\/)(package\.json|pyproject\.toml|setup\.cfg|tox\.ini|\.coveragerc|\.nycrc(?:\.[a-z]+)?|codecov\.ya?ml|jest\.config\.[cm]?[jt]s|vitest\.config\.[cm]?[jt]s|Makefile)$|(^|\/)\.github\/workflows\/[^/]+\.ya?ml$/i;
+
+/** Keys that express a coverage floor. */
+const COVERAGE_GATE = /coverageThreshold|fail_under|check-coverage|fail_ci_if_error/;
+
+/** Explicit ways to switch coverage reporting or enforcement off. */
+const COVERAGE_DISABLED: RegExp[] = [
+  /\bcollectCoverage\s*:\s*false\b/,
+  /\b--coverage=false\b|\b--no-coverage\b/,
+  /\bcheck-coverage\s*:\s*false\b/,
+  /\bfail_ci_if_error\s*:\s*false\b/,
+  /^\s*coverage\s*:\s*false\s*$/,
+];
+
 const MOCK: RegExp[] = [
   /\bjest\.mock\s*\(/,
   /\bvi\.mock\s*\(/,
@@ -115,6 +165,16 @@ const STRING_LITERAL = /(["'`])(?:\\.|(?!\1)[^\\\n])*\1/g;
  */
 function stripStrings(text: string): string {
   return text.replace(STRING_LITERAL, '""');
+}
+
+/**
+ * YAML/TOML/shell comment or a block-comment continuation. CI patterns are matched on
+ * raw text (commands live inside scalars, so stripping quotes would hide them), which
+ * makes this check necessary to avoid flagging commented-out examples.
+ */
+function isComment(text: string): boolean {
+  const t = text.trim();
+  return t.startsWith("#") || t.startsWith("//") || t.startsWith("/*") || t.startsWith("*");
 }
 
 /** Position of the first suppression marker, or -1. */
@@ -568,6 +628,114 @@ const configLoosened: RuleMeta = {
   },
 };
 
+const ciNeutered: RuleMeta = {
+  id: "ci-neutered",
+  severity: "high",
+  weight: 20,
+  name: { en: "CI can no longer fail", zh: "CI 被改成不会失败" },
+  why: {
+    en: "A step is allowed to fail, a command's exit code is swallowed with `|| true`, or `set -e` was removed. The pipeline stays green while the check does nothing.",
+    zh: "某个步骤被允许失败，命令的退出码被 `|| true` 吞掉，或者 `set -e` 被删了。流水线照样绿，检查却什么都没做。",
+  },
+  run(files) {
+    const out: RawFinding[] = [];
+    for (const f of files) {
+      if (f.status === "deleted" || !CI_FILE.test(f.path) || isNoiseFile(f.path)) continue;
+      const added = f.added.filter((l) => !isComment(l.text));
+      const errexitRestored = added.some((l) => ERREXIT.test(l.text));
+      const addedHits = added.filter((l) => neuters(l.text, errexitRestored));
+      const removedGuard = errexitRestored
+        ? []
+        : f.removed.filter((l) => !isComment(l.text) && ERREXIT.test(l.text));
+      const hits = [...addedHits, ...removedGuard];
+      if (hits.length === 0) continue;
+      out.push({
+        file: f.path,
+        line: Math.min(...hits.map((h) => h.line)),
+        evidence: trimEvidence([
+          ...addedHits.map((h) => "+ " + h.text),
+          ...removedGuard.map((h) => "- " + h.text),
+        ]),
+        message: {
+          en: `${hits.length} way${hits.length > 1 ? "s" : ""} for the pipeline to ignore failure`,
+          zh: `${hits.length} 处让流水线忽略失败`,
+        },
+        count: hits.length,
+      });
+    }
+    return out;
+  },
+};
+
+const coverageGate: RuleMeta = {
+  id: "coverage-gate-removed",
+  severity: "high",
+  weight: 15,
+  name: { en: "coverage gate removed", zh: "覆盖率闸门被移除" },
+  why: {
+    en: "The coverage floor was deleted or lowered. Coverage can now fall to anything and CI stays green.",
+    zh: "覆盖率门槛被删除或调低。此后覆盖率掉到哪里都行，CI 依然是绿的。",
+  },
+  run(files) {
+    const out: RawFinding[] = [];
+    const floor = (lines: { text: string }[]): number | null => {
+      for (const l of lines) {
+        const m = /fail_under\s*=\s*(\d+(?:\.\d+)?)/.exec(l.text);
+        if (m) return Number(m[1]);
+      }
+      return null;
+    };
+    for (const f of files) {
+      if (f.status === "deleted" || !COVERAGE_FILE.test(f.path) || isNoiseFile(f.path)) continue;
+      const addedText = f.added.map((l) => l.text).join("\n");
+      const removed = f.removed.filter((l) => !isComment(l.text));
+      const gone: { line: number; text: string }[] = [];
+      const broke: { line: number; text: string }[] = [];
+
+      // A gate key that disappeared entirely.
+      const seen = new Set<string>();
+      for (const l of removed) {
+        const m = COVERAGE_GATE.exec(l.text);
+        if (!m || seen.has(m[0])) continue;
+        seen.add(m[0]);
+        if (!addedText.includes(m[0])) gone.push(l);
+      }
+
+      // The gate is still there, but the bar moved down.
+      const before = floor(f.removed);
+      const after = floor(f.added);
+      if (before !== null && after !== null && after < before && after > 0) {
+        const lowered = f.added.find((l) => /fail_under\s*=/.test(l.text));
+        if (lowered) broke.push(lowered);
+      }
+
+      // Coverage switched off outright.
+      for (const l of f.added) {
+        if (!isComment(l.text) && matchesAny(l.text, COVERAGE_DISABLED)) broke.push(l);
+      }
+
+      if (gone.length + broke.length === 0) continue;
+      const uniqueGone = [...new Map(gone.map((h) => [`${h.line}:${h.text}`, h])).values()];
+      const uniqueBroke = [...new Map(broke.map((h) => [`${h.line}:${h.text}`, h])).values()];
+      const hits = [...uniqueGone, ...uniqueBroke];
+      out.push({
+        file: f.path,
+        line: Math.min(...hits.map((h) => h.line)),
+        evidence: trimEvidence([
+          ...uniqueGone.map((h) => "- " + h.text),
+          ...uniqueBroke.map((h) => "+ " + h.text),
+        ]),
+        message: {
+          en: `${hits.length} coverage gate change${hits.length > 1 ? "s" : ""} removed or lowered the bar`,
+          zh: `${hits.length} 处覆盖率闸门被移除或调低`,
+        },
+        count: hits.length,
+      });
+    }
+    return out;
+  },
+};
+
 const mockUnderTest: RuleMeta = {
   id: "mock-under-test",
   severity: "critical",
@@ -769,6 +937,8 @@ export const RULES: RuleMeta[] = [
   errorSwallowed,
   ...checksDisabled,
   configLoosened,
+  ciNeutered,
+  coverageGate,
   snapshotBlast,
   stubImplementation,
   mockInflation,

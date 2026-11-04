@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`ci-neutered`** (high). Catches a pipeline that has been edited so it can no longer fail: `|| true`,
+  `|| exit 0`, `if: false`, `allow_failure: true`, `soft_fail: true`, `continueOnError: true`,
+  `set +e`, and deleted `set -e` / `set -euo pipefail` guards. Only CI definitions and scripts are
+  scanned, cleanup commands (`rm -rf dist || true`) are ignored, and `set +e` is not reported when the
+  same change re-enables errexit.
+- **`coverage-gate-removed`** (high). Catches a coverage floor that was deleted, lowered or switched
+  off: `coverageThreshold` gone, `fail_under` moved down, `check-coverage: false`,
+  `fail_ci_if_error: false`, `collectCoverage: false`, `--coverage=false`, `--no-coverage`. Raising
+  the bar is never flagged.
+
 ## [0.1.0] — 2026-11-03
 
 First release. `cheatcheck` reads a git diff and reports the shortcuts an AI coding agent takes to

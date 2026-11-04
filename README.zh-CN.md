@@ -78,7 +78,7 @@ npx cheatcheck --diff changes.patch
 
 ## 它检测什么
 
-16 条规则，全部基于 diff 的新增行和删除行判断。
+18 条规则，全部基于 diff 的新增行和删除行判断。
 
 | 级别 | 规则 | 抓什么 |
 | --- | --- | --- |
@@ -92,6 +92,8 @@ npx cheatcheck --diff changes.patch
 | 🟠 高 | `error-swallowed` | 空的 `catch {}`、`except: pass`、光秃秃的 `.catch(() => {})` |
 | 🟠 高 | `checks-disabled` | 无理由的 `@ts-nocheck`、`eslint-disable`、`# type: ignore` |
 | 🟠 高 | `config-loosened` | `"strict": false`、`skipLibCheck`、`--passWithNoTests`、`continue-on-error: true` |
+| 🟠 高 | `ci-neutered` | `npm test \|\| true`、`if: false`、`allow_failure: true`、删掉 `set -e` |
+| 🟠 高 | `coverage-gate-removed` | 删除 `coverageThreshold`、调低 `fail_under`、`collectCoverage: false` |
 | 🟠 高 | `snapshot-blast` | 快照文件被单方向大量重写 |
 | 🟡 中 | `lint-suppressed` | 单行的 lint/类型抑制，且没有说明理由 |
 | 🟡 中 | `stub-implementation` | `not implemented`、`TODO: implement`、`return null; // stub` |

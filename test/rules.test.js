@@ -266,6 +266,122 @@ test("config-loosened catches disabled guardrails, not normal config", () => {
   assert.ok(!healthy.triggered.includes("config-loosened"));
 });
 
+test("ci-neutered catches a pipeline that can no longer fail", () => {
+  const swallowed = runText(makeDiff(".github/workflows/ci.yml", ["      - run: npm test || true"]));
+  assert.ok(swallowed.triggered.includes("ci-neutered"));
+
+  const disabled = runText(
+    makeDiff(".github/workflows/ci.yml", ["      - run: npm run lint", "        if: false"])
+  );
+  assert.ok(disabled.triggered.includes("ci-neutered"));
+
+  const noErrexit = runText(
+    [
+      "diff --git a/scripts/test.sh b/scripts/test.sh",
+      "--- a/scripts/test.sh",
+      "+++ b/scripts/test.sh",
+      "@@ -1,3 +1,2 @@",
+      "-set -euo pipefail",
+      " npm test",
+    ].join("\n")
+  );
+  assert.ok(noErrexit.triggered.includes("ci-neutered"));
+});
+
+test("ci-neutered leaves a healthy workflow alone", () => {
+  const healthy = runText(
+    makeDiff(".github/workflows/ci.yml", [
+      "      - run: npm ci",
+      "      - run: npm test",
+      "      - run: npm run build",
+      "        if: github.event_name == 'push'",
+      "      fail-fast: false",
+    ])
+  );
+  assert.ok(!healthy.triggered.includes("ci-neutered"));
+
+  // A commented-out command is documentation, not a change to the pipeline.
+  assert.ok(!runText(makeDiff(".github/workflows/ci.yml", ["      # - run: npm test || true"])).triggered.includes("ci-neutered"));
+
+  // `|| true` in application code is not a CI change.
+  assert.ok(!runText(makeDiff("src/run.ts", ["const ok = run() || true;"])).triggered.includes("ci-neutered"));
+
+  // Cleanup after a build may fail; it is not a disabled check.
+  assert.ok(!runText(makeDiff("scripts/release.sh", ["rm -rf dist || true"])).triggered.includes("ci-neutered"));
+  assert.ok(
+    !runText(makeDiff("scripts/release.sh", ["curl -fsS \"$HEALTH_URL\" || true"])).triggered.includes("ci-neutered")
+  );
+
+  // Toggling errexit around an expected failure is normal shell, not a neutered pipeline.
+  const toggle = runText(
+    [
+      "diff --git a/scripts/x.sh b/scripts/x.sh",
+      "--- a/scripts/x.sh",
+      "+++ b/scripts/x.sh",
+      "@@ -1,2 +1,4 @@",
+      " set -euo pipefail",
+      "+set +e",
+      "+grep -q needle file",
+      "+set -e",
+    ].join("\n")
+  );
+  assert.ok(!toggle.triggered.includes("ci-neutered"));
+
+  // But swallowing the exit code of a real check is a finding.
+  assert.ok(
+    runText(makeDiff("scripts/ci.sh", ["./scripts/e2e.sh || true"])).triggered.includes("ci-neutered")
+  );
+});
+
+test("coverage-gate-removed catches a deleted, lowered or switched-off floor", () => {
+  const removed = [
+    "diff --git a/jest.config.js b/jest.config.js",
+    "--- a/jest.config.js",
+    "+++ b/jest.config.js",
+    "@@ -1,6 +1,3 @@",
+    " module.exports = {",
+    "-  coverageThreshold: {",
+    "-    global: { lines: 80 },",
+    "-  },",
+    "   testEnvironment: 'node',",
+    " };",
+  ].join("\n");
+  assert.ok(runText(removed).triggered.includes("coverage-gate-removed"));
+
+  const lowered = [
+    "diff --git a/pyproject.toml b/pyproject.toml",
+    "--- a/pyproject.toml",
+    "+++ b/pyproject.toml",
+    "@@ -1,2 +1,2 @@",
+    "-fail_under = 85",
+    "+fail_under = 40",
+  ].join("\n");
+  assert.ok(runText(lowered).triggered.includes("coverage-gate-removed"));
+
+  assert.ok(
+    runText(makeDiff("jest.config.js", ["  collectCoverage: false,"])).triggered.includes("coverage-gate-removed")
+  );
+});
+
+test("coverage-gate-removed leaves normal coverage config alone", () => {
+  assert.ok(!runText(makeDiff("pyproject.toml", ["fail_under = 90"])).triggered.includes("coverage-gate-removed"));
+
+  const raised = [
+    "diff --git a/pyproject.toml b/pyproject.toml",
+    "--- a/pyproject.toml",
+    "+++ b/pyproject.toml",
+    "@@ -1,2 +1,2 @@",
+    "-fail_under = 70",
+    "+fail_under = 90",
+  ].join("\n");
+  assert.ok(!runText(raised).triggered.includes("coverage-gate-removed"));
+
+  // `fail_under = 0` is config-loosened's finding; do not charge it twice.
+  const zero = runText(makeDiff("pyproject.toml", ["fail_under = 0"]));
+  assert.ok(zero.triggered.includes("config-loosened"));
+  assert.ok(!zero.triggered.includes("coverage-gate-removed"));
+});
+
 test("mock-inflation needs three new mocks", () => {
   const many = runText(
     makeDiff("src/checkout.test.ts", [
@@ -330,7 +446,7 @@ test("documents every rule in both READMEs and the rule reference", () => {
     "README.zh-CN.md": fs.readFileSync(path.join(root, "README.zh-CN.md"), "utf8"),
   };
 
-  assert.equal(RULES.length, 16, "the READMEs advertise 16 rules");
+  assert.equal(RULES.length, 18, "the READMEs advertise 18 rules");
 
   for (const rule of RULES) {
     for (const [file, text] of Object.entries(docs)) {
